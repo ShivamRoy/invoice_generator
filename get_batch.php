@@ -2,15 +2,47 @@
 include '../testmysql.php';
 include "../Invoice_generator/dbfunctions.php";
 require('libs/fpdf.php');
-
 if (isset($_GET['sedi'])) {
     $sedi = $_GET['sedi'];
+
+    $created_at = date('Y-m-d H:i:s');
+    $updated_at = date('Y-m-d H:i:s');
+    // After we have SEDI value, generate a new invoice number
+    // Get the last invoice number
+    $result = $mysqli->query("SELECT invoice_number FROM invoices_data ORDER BY id DESC LIMIT 1");
+
+    if ($result->num_rows > 0) {
+        $row = $result->fetch_assoc();
+        $last_invoice = $row['invoice_number'];
+        
+
+        // INVOICE #2024-AMB-0218 (example format)
+        // Extract the numeric part and increment it
+        $parts = explode('-', $last_invoice);
+        $number = (int)substr($parts[2], -4); // Get the last 4 digits as integer
+        $number++; // Increment the number
+
+        // Format the new invoice number with leading zeros for a total of 4 digits
+        $new_invoice_number = $parts[0] . '-' . $parts[1] . '-' . str_pad($number, 4, '0', STR_PAD_LEFT);
+    } else {
+        // Default invoice number if no records are found
+        $new_invoice_number = "INVOICE #2024-AMB-0001";
+    }
+
+    // Insert the new invoice number into the database
+    $stmt = $mysqli->prepare("INSERT INTO invoices_data (invoice_number, created_at, updated_at) VALUES (?, ?, ?)");
+    $stmt->bind_param("sss", $new_invoice_number, $created_at, $updated_at);
+    $stmt->execute();
+
+    // Now you can use $new_invoice_number to generate your PDF
+    // echo "New Invoice Number: " . $new_invoice_number;
+
 
     // Fetch data related to the selected SEDI
     $query = "SELECT * FROM make_generator WHERE `SEDI` = '$sedi'";
     $query_inv_res = getData($mysqli, $query, "array");
     $query_inv_row = count($query_inv_res);
-    $invoice_num = 'INVOICE #2024-AMB-0219';
+    // $invoice_num = 'INVOICE #2024-AMB-0219';
 
     $pdf = new FPDF();
     $pdf->AddPage();
@@ -33,7 +65,7 @@ if (isset($_GET['sedi'])) {
     $pdf->SetTextColor(0, 0, 0);
     $pdf->SetFont('Arial', '', 10);
     $pdf->SetXY(140, 20); // Adjust the Y position as needed to align
-    $pdf->Cell(0, 6, 'INVOICE #2024-AMB-0219', 0, 1, 'R');
+    $pdf->Cell(0, 6, $new_invoice_number, 0, 1, 'R');
     $pdf->Cell(0, 6, 'DATE: ' . date('F d, Y'), 0, 1, 'R');
     $pdf->Ln(5); // Add a line break if needed
     // Client Information (as before)
@@ -55,21 +87,23 @@ if (isset($_GET['sedi'])) {
     // Table Content
     $pdf->SetFont('Arial', '', 10);
     $total = 0;
+    $total_users = 0;
 
     for ($i = 0; $i < $query_inv_row; $i++) {
         $batch = $query_inv_res[$i]['Batch'];
         $exam = $query_inv_res[$i]['Exam'];
         $userAttempts = $query_inv_res[$i]['User Attempts'];
-        $examDate = $query_inv_res[$i]['Exam Date']; // Assuming the date is in a standard format like 'Y-m-d' or 'Y-m-d H:i:s'
-        // Create a DateTime object from the date string
-        $date = new DateTime($examDate);
+        $examDate = $query_inv_res[$i]['Exam Date']; // Assuming the date is in 'Y-m-d' format
         // Format the date in DMY format
+        $date = new DateTime($examDate);
         $formattedDate = $date->format('d-m-Y'); // 'd' = Day, 'm' = Month, 'Y' = Year
         echo $formattedDate; // Output: e.g., 12-11-2024
-
+        // Calculate the amount and add to the total
         $amount = $userAttempts * 13;
         $total += $amount;
-
+        // Accumulate the total of user attempts
+        $total_users += $userAttempts;
+        // Output the row in the PDF
         $pdf->Cell(30, 10, $userAttempts . ' Users', 1);
         $pdf->Cell(130, 10, "Exam for $batch on $formattedDate [Rs.13 per user] ($userAttempts*13)", 1);
         $pdf->Cell(30, 10, "Rs. " . number_format($amount, 2), 1, 1, 'R');
@@ -79,8 +113,13 @@ if (isset($_GET['sedi'])) {
     $tax = $total * 0.18;
     $totalDue = $total + $tax;
 
+    // Display the total of user attempts in the PDF
+
+    $pdf->SetFont('Arial', 'B', 10);
+    $pdf->Cell(30, 10, 'Total Users: ' . $total_users, 1);
+
     // Set the font and add the subtotal, tax, and total cells
-    $pdf->SetX($pdf->GetX() + 20); // Move right 20mm from current position
+    $pdf->SetX($pdf->GetX() + 0); // Move right 20mm from current position
     $pdf->Cell(130, 10, 'SUBTOTAL', 1);
     $pdf->Cell(30, 10, "Rs. " . number_format($total, 2), 1, 1, 'R');
 
@@ -90,19 +129,37 @@ if (isset($_GET['sedi'])) {
     $pdf->Cell(160, 10, 'TOTAL DUE', 1);
     $pdf->Cell(30, 10, "Rs. " . number_format($totalDue, 2), 1, 1, 'R');
 
-    // Footer message
+    // Calculate starting coordinates and dimensions for the large border
+    $x = 10; // Left margin
+    $y = $pdf->GetY() + 10; // Position just after the previous content and line break
+    $width = $pdf->GetPageWidth() - 20; // Width minus left and right margins
+    $startingY = $y; // Save starting y-position for later height calculation
+    // Add the content within the border
+    // Define the starting position and width for the bordered section
+    $startX = 10; // Starting X position (left margin)
+    $startY = $pdf->GetY() + 10; // Starting Y position (10 units after the current line)
+    $sectionWidth = 190; // Width of the section (adjust as needed)
+
+    // Save the Y position before starting to add content
+    $initialY = $pdf->GetY();
+
+    // Footer message within the bordered section
     $pdf->Ln(10);
     $pdf->SetFont('Arial', '', 10);
     $pdf->Cell(0, 5, 'Make all checks payable to AADDOO Softtech Private Limited', 0, 1);
 
     // Align image and account details in the same row
-    $pdf->Ln(10); // Line break for space
-    $pdf->SetFont('Arial', '', 10);
+    $pdf->Ln(10);
+    $pdf->Cell(0, 5, 'Account Details:', 0, 1);
 
-    // Set X and Y positions for the image to align it on the same row as the account details
-    $pdf->Cell(0, 5, 'Account Details:', 0, 1); // Title for account details
-    $pdf->Cell(100, 5, 'Bank: PNB Solan', 0, 0); // Account detail text cell
-    $pdf->Image('aaddoo_stamp.jpg', 120, $pdf->GetY() - 5, 30, 30); // Image aligned at Y position of the current line
+    // Now make sure the image stays inside the section
+    $imageX = 120; // X position for image (adjust as needed)
+    $imageY = $pdf->GetY() - 5; // Y position for image (ensure it is within the rectangle)
+
+    // Draw the image inside the rectangle (image Y adjusted to fit within the section)
+    $pdf->Cell(100, 5, 'Bank: PNB Solan', 0, 0);
+    $pdf->Image('aaddoo_stamp.jpg', $imageX, $imageY, 30, 30); // Image aligned at Y position of the current line
+
     $pdf->Ln(5); // Move to next line for subsequent details
     $pdf->Cell(100, 5, 'Account Number: 0433002100076170', 0, 1);
     $pdf->Cell(100, 5, 'IFSC: PUNB0043300', 0, 1);
@@ -115,7 +172,17 @@ if (isset($_GET['sedi'])) {
     $pdf->Ln(5);
     $pdf->Cell(0, 6, 'Thank you for your business!', 0, 1);
 
-    // Centered bottom image
+    // Calculate the final Y position after adding content
+    $finalY = $pdf->GetY();
+
+    // Calculate the height of the section (difference between final Y and initial Y)
+    $sectionHeight = $finalY - $initialY;
+
+    // Draw the rectangle for the border with dynamic height
+    $pdf->Rect($startX, $startY, $sectionWidth, $sectionHeight);
+
+    // Centered bottom image without border
+    $pdf->Ln(300);
     $pageWidth = $pdf->GetPageWidth();
     $imageWidth = 20;
     $x = ($pageWidth - $imageWidth) / 2;
