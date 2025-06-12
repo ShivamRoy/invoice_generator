@@ -1,5 +1,7 @@
 <?php
-$query = "SELECT DISTINCT `SEDI` FROM make_generator";
+$query = "SELECT DISTINCT `SEDI` 
+FROM make_generator 
+ORDER BY `SEDI` ASC";
 $result = $mysqli->query($query); ?>
 
 <form method="POST" action="">
