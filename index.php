@@ -9,6 +9,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES["csvFile"])) {
         // Skip the header row if present
         fgetcsv($handle, 1000, ",");
 
+        $mysqli->query("TRUNCATE TABLE make_generator");
+
         // Read each row of the CSV
         while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
             // Assign data to variables as per the CSV column order
