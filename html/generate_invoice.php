@@ -2,7 +2,16 @@
 $query = "SELECT DISTINCT `SEDI` 
 FROM make_generator 
 ORDER BY `SEDI` ASC";
-$result = $mysqli->query($query); ?>
+$result = $mysqli->query($query);
+
+$inv_chk = "SELECT * FROM invoices_data ORDER BY created_at DESC LIMIT 1;";
+$result_inv = $mysqli->query($inv_chk);
+$row_inv = $result_inv->fetch_assoc();
+$inv_number = $row_inv['invoice_number'];
+?>
+
+<h1>Latest Invoice number: <?php echo $inv_number; ?></h1>
+
 
 <form method="POST" action="">
     <label for="sedi">Select SEDI:</label>
