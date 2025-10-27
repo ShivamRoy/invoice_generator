@@ -22,7 +22,7 @@ if (isset($_GET['sedi'])) {
         $number++;
         $new_invoice_number = $parts[0] . '-' . $parts[1] . '-' . str_pad($number, 4, '0', STR_PAD_LEFT);
     } else {
-        $new_invoice_number = "INVOICE #2024-AMB-0001";
+        $new_invoice_number = "INVOICE #2025-AMB-0001";
     }
 
     // Fetch data related to the selected SEDI
@@ -114,7 +114,7 @@ if (isset($_GET['sedi'])) {
     $pdf->SetX($pdf->GetX() + 0);
     $pdf->Cell(130, 10, 'SUBTOTAL', 1);
     $pdf->Cell(30, 10, "Rs. " . number_format($total, 2), 1, 1, 'R');
-    $pdf->Cell(160, 10, 'SALES TAX (18%)', 1);
+    $pdf->Cell(160, 10, 'GST (18%)', 1);
     $pdf->Cell(30, 10, "Rs. " . number_format($tax, 2), 1, 1, 'R');
     $pdf->Cell(160, 10, 'TOTAL DUE', 1);
     $pdf->Cell(30, 10, "Rs. " . number_format($totalDue, 2), 1, 1, 'R');
