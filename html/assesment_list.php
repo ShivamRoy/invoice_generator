@@ -47,7 +47,9 @@
             <th>Select</th>
             <th>S.No</th>
             <th>SEDI</th>
+            <th>Exam</th>
             <th>Batch</th>
+            <th>Funding Resource</th>
             <th>User Attempts</th>
             <th>Exam Date</th>
         </tr>
@@ -60,7 +62,9 @@
             echo "<td><input type='checkbox' class='row-check' value='{$row['id']}'></td>";
             echo "<td>{$sno}</td>";
             echo "<td>{$row['SEDI']}</td>";
+            echo "<td>" . htmlspecialchars($row['Exam']) . "</td>"; // NEW
             echo "<td>{$row['Batch']}</td>";
+            echo "<td>" . htmlspecialchars($row['Funding Resource']) . "</td>"; // NEW
             echo "<td>{$row['User Attempts']}</td>";
             echo "<td>{$row['Exam Date']}</td>";
             echo "</tr>";
@@ -70,6 +74,11 @@
     </tbody>
 </table>
 <button id="generatePdfBtn">Generate PDF</button>
+
+
+</body>
+</html>
+
 
 <script>
 // Filter rows by SEDI
@@ -87,14 +96,11 @@ document.getElementById('sediFilter').addEventListener('change', function () {
 });
 </script>
 
-</body>
-</html>
-
 <script>
 document.getElementById('generatePdfBtn').addEventListener('click', function() {
     let selected = [];
     document.querySelectorAll('.row-check:checked').forEach(cb => {
-        selected.push(cb.value); // get "id" value
+        selected.push(cb.value); // each checkbox holds row "id"
     });
 
     if (selected.length === 0) {
@@ -102,23 +108,8 @@ document.getElementById('generatePdfBtn').addEventListener('click', function() {
         return;
     }
 
-    // Send IDs to get_batch.php via POST
-    fetch('get_batch.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: selected })
-    })
-    .then(response => response.blob()) // expecting PDF
-    .then(blob => {
-        let url = window.URL.createObjectURL(blob);
-        let a = document.createElement('a');
-        a.href = url;
-        a.download = "batch_report.pdf"; // filename
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
-    })
-    .catch(err => console.error("Error:", err));
+    // Open get_batch.php in a new tab, passing IDs
+    let url = "get_batchNew.php?ids=" + encodeURIComponent(selected.join(","));
+    window.open(url, "_blank");
 });
 </script>
